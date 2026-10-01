@@ -3,9 +3,16 @@ export type ShotCount = 1 | 2 | 3;
 
 export const SHOT_COUNT_OPTIONS: ShotCount[] = [1, 2, 3];
 
-/** 帧条目：一帧的曝光参数、道具位移与实拍记录 */
+/**
+ * 帧条目：一帧的曝光参数、道具位移与实拍记录。
+ * frameKey 是跨设备、跨离线包的稳定标识：
+ * 新帧由 buildFrameKey 随机生成；旧数据（v3 及以前）在 v4 升级时
+ * 按「镜号 + 帧槽」回填，保证棚内/外景两台设备算出的同一帧槽 key 一致。
+ */
 export interface FrameEntry {
   id?: number;
+  /** 稳定帧标识，不随帧序号重排、插入、删除而变化 */
+  frameKey: string;
   /** 帧序号，从 1 开始，随排序重排 */
   frameNo: number;
   /** 所属镜头 id */
@@ -30,6 +37,7 @@ export interface FrameEntry {
 }
 
 export const createEmptyFrame = (shotId: number, frameNo: number): FrameEntry => ({
+  frameKey: '',
   frameNo,
   shotId,
   shotCount: 2,
@@ -49,4 +57,9 @@ export interface BatchExposure {
   aperture: number;
   iso: number;
   shutterAngle: number;
+}
+
+/** 一帧的完整曝光参数（离线合并时作为一个整体参与冲突裁决） */
+export interface ExposureBundle extends BatchExposure {
+  lighting: string;
 }

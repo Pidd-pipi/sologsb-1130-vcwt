@@ -7,6 +7,7 @@ import type { Shot } from '../types/shot';
 import { createEmptyShot } from '../types/shot';
 import type { FrameEntry } from '../types/frame';
 import { createEmptyFrame } from '../types/frame';
+import { generateFrameKey } from '../utils/frameKey';
 
 interface ShotState {
   shots: Shot[];
@@ -108,8 +109,8 @@ export const useShotStore = defineStore('shot', {
   },
 });
 
-/** 新建镜头时生成首个帧条目 */
+/** 新建镜头时生成首个帧条目（带新帧稳定标识） */
 export function firstFrameOf(shot: Shot): FrameEntry {
   const frame = createEmptyFrame(shot.id ?? 0, shot.startFrame);
-  return frame;
+  return { ...frame, frameKey: generateFrameKey() };
 }

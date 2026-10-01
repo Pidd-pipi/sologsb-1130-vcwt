@@ -8,6 +8,7 @@ import { storeToRefs } from 'pinia';
 import { useShotStore } from '../stores/shotStore';
 import { useProgress } from '../hooks/useProgress';
 import { formatDateTime, today } from '../utils/format';
+import * as api from '../db/api';
 import ShotProgress from '../components/common/ShotProgress.vue';
 import StatusTag from '../components/common/StatusTag.vue';
 import EmptyState from '../components/common/EmptyState.vue';
@@ -64,6 +65,13 @@ async function removeRow(row: TakeLog) {
   await removeTake(row.id);
   await loadTakes();
   flash('已删除该条实拍记录');
+}
+
+async function confirmRow(row: TakeLog) {
+  if (typeof row.id !== 'number') return;
+  await api.confirmTake(row.id);
+  await loadTakes();
+  flash('已确认该条实拍，后续离线合并不再回退此进度');
 }
 </script>
 
@@ -145,7 +153,7 @@ async function removeRow(row: TakeLog) {
         <div class="panel-head"><h2>实拍记录清单</h2><span class="muted">共 {{ takes.length }} 条</span></div>
         <table v-if="takes.length" class="table" data-testid="take-table">
           <thead>
-            <tr><th>拍摄日期</th><th>镜号</th><th>实拍张数</th><th>废帧数</th><th>剩余张数</th><th>完成百分比</th><th>登记时间</th><th>操作</th></tr>
+            <tr><th>拍摄日期</th><th>镜号</th><th>实拍张数</th><th>废帧数</th><th>剩余张数</th><th>完成百分比</th><th>登记时间</th><th>确认状态</th><th>操作</th></tr>
           </thead>
           <tbody>
             <tr v-for="row in takes" :key="row.id">
@@ -156,7 +164,13 @@ async function removeRow(row: TakeLog) {
               <td>{{ row.remainingFrames }}</td>
               <td>{{ row.percent }}%</td>
               <td class="muted">{{ formatDateTime(row.updatedAt) }}</td>
-              <td><button type="button" class="btn tiny danger" @click="removeRow(row)">删除</button></td>
+              <td>
+                <span v-if="row.confirmed" class="confirmed">已确认</span>
+                <button v-else type="button" class="btn tiny" data-testid="take-confirm" @click="confirmRow(row)">场记确认</button>
+              </td>
+              <td class="row-actions">
+                <button type="button" class="btn tiny danger" @click="removeRow(row)">删除</button>
+              </td>
             </tr>
           </tbody>
         </table>
@@ -330,6 +344,18 @@ h1 {
 .btn.danger {
   color: #c45656;
   border-color: #f0c8c8;
+}
+.row-actions {
+  display: flex;
+  gap: 6px;
+}
+.confirmed {
+  font-size: 12px;
+  color: #1f7a41;
+  background: #eafaf0;
+  border-radius: 999px;
+  padding: 2px 10px;
+  white-space: nowrap;
 }
 .feedback {
   margin: 0;

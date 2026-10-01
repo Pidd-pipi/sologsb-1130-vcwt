@@ -6,6 +6,7 @@ import ShotDetail from '../pages/ShotDetail.vue';
 import FrameBoard from '../pages/FrameBoard.vue';
 import PropTrack from '../pages/PropTrack.vue';
 import TakeLog from '../pages/TakeLog.vue';
+import OfflineMerge from '../pages/OfflineMerge.vue';
 
 const routes: RouteRecordRaw[] = [
   { path: '/', name: 'overview', component: Overview, meta: { title: '进度总览' } },
@@ -14,6 +15,7 @@ const routes: RouteRecordRaw[] = [
   { path: '/frames', name: 'frames', component: FrameBoard, meta: { title: '帧序编排台' } },
   { path: '/props', name: 'props', component: PropTrack, meta: { title: '道具位移轨迹' } },
   { path: '/progress', name: 'progress', component: TakeLog, meta: { title: '实拍记录' } },
+  { path: '/merge', name: 'offline-merge', component: OfflineMerge, meta: { title: '离线回棚合并' } },
   { path: '/:pathMatch(.*)*', redirect: '/' },
 ];
 
@@ -23,6 +25,7 @@ export const navItems: { path: string; label: string }[] = [
   { path: '/frames', label: '帧序编排台' },
   { path: '/props', label: '道具位移轨迹' },
   { path: '/progress', label: '实拍记录' },
+  { path: '/merge', label: '离线回棚' },
 ];
 
 const router = createRouter({

@@ -3,6 +3,7 @@ import { defineStore } from 'pinia';
 import * as api from '../db/api';
 import { toPlain } from '../db';
 import { accumulateOffsets, estimateSpeed, frameColor, framesToDuration } from '../utils/frameMath';
+import { generateFrameKey } from '../utils/frameKey';
 import type { BatchExposure, FrameEntry } from '../types/frame';
 import { createEmptyFrame } from '../types/frame';
 
@@ -78,6 +79,7 @@ export const useFrameStore = defineStore('frame', {
           : {}),
         ...seed,
         frameNo: index + 1,
+        frameKey: generateFrameKey(),
         id: undefined,
       };
       this.frames = [...this.frames.slice(0, index), merged, ...this.frames.slice(index)];
