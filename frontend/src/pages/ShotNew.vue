@@ -8,7 +8,7 @@ import { useRouter } from 'vue-router';
 import { useShotStore } from '../stores/shotStore';
 import { useFrameStore } from '../stores/frameStore';
 import { useLocalDraft } from '../hooks/useLocalDraft';
-import { buildFrameRange, framesToDuration } from '../utils/frameMath';
+import { buildFrameRange, frameUid, framesToDuration } from '../utils/frameMath';
 import { addFrames } from '../db/api';
 import { FPS_OPTIONS, SHOT_STATUS_OPTIONS, type ShotStatus } from '../types/shot';
 import { createEmptyFrame, type FrameEntry } from '../types/frame';
@@ -92,7 +92,12 @@ async function submit() {
       status: draft.value.status,
       owner: draft.value.owner.trim(),
     });
-    const first: FrameEntry = { ...createEmptyFrame(shot.id as number, shot.startFrame), ...exposure.value, id: undefined };
+    const first: FrameEntry = {
+      ...createEmptyFrame(shot.id as number, shot.startFrame),
+      ...exposure.value,
+      id: undefined,
+      uid: frameUid(shot.code, shot.startFrame),
+    };
     await addFrames([first]);
     await frameStore.loadForShot(shot.id as number);
     reset();

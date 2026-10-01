@@ -2,9 +2,10 @@
 import { defineStore } from 'pinia';
 import * as api from '../db/api';
 import { toPlain } from '../db';
-import { accumulateOffsets, estimateSpeed, frameColor, framesToDuration } from '../utils/frameMath';
+import { accumulateOffsets, estimateSpeed, frameColor, frameUid, framesToDuration } from '../utils/frameMath';
 import type { BatchExposure, FrameEntry } from '../types/frame';
 import { createEmptyFrame } from '../types/frame';
+import { useShotStore } from './shotStore';
 
 interface FrameState {
   frames: FrameEntry[];
@@ -53,10 +54,15 @@ export const useFrameStore = defineStore('frame', {
     select(frameNo: number | null) {
       this.selectedFrameNo = frameNo;
     },
-    /** 整段帧序落库（脱代理后写入），帧序号按数组顺序重排 */
+    /** 整段帧序落库（脱代理后写入），帧序号按数组顺序重排，并补齐稳定帧标识 uid */
     async persist() {
       if (this.shotId === null) return;
-      const ordered = this.frames.map((f, idx) => ({ ...f, frameNo: idx + 1, shotId: this.shotId as number }));
+      const shotStore = useShotStore();
+      const shotCode = shotStore.byId(this.shotId)?.code ?? `shot${this.shotId}`;
+      const ordered = this.frames.map((f, idx) => {
+        const frameNo = idx + 1;
+        return { ...f, frameNo, shotId: this.shotId as number, uid: f.uid ?? frameUid(shotCode, frameNo) };
+      });
       await api.replaceShotFrames(this.shotId, toPlain(ordered));
       this.frames = await api.listFrames(this.shotId);
       this.dirty = false;

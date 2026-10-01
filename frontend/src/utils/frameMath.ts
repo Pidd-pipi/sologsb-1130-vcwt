@@ -3,6 +3,21 @@
  * 定格动画以「张数」计帧，时长为 张数 ÷ 帧率。
  */
 
+/**
+ * 稳定帧标识：由镜号与帧槽生成。
+ * 旧数据（v1→v2→v3 升级迁移后的帧条目）没有 uid，升级后按同一规则补齐，
+ * 保证同一条帧在不同设备、不同版本下标识稳定一致。
+ */
+export function frameUid(shotCode: string, frameNo: number): string {
+  const slug =
+    String(shotCode || 'shot')
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '') || 'shot';
+  return `f_${slug}_${Math.max(1, Math.floor(frameNo))}`;
+}
+
 /** 时长（秒）换算成所需张数，向上取整，至少 1 张 */
 export function durationToFrames(durationSec: number, fps: number): number {
   if (!Number.isFinite(durationSec) || !Number.isFinite(fps) || fps <= 0) return 1;

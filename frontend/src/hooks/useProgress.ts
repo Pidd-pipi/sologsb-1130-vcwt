@@ -6,6 +6,7 @@ import { computed, ref } from 'vue';
 import * as api from '../db/api';
 import { useShotStore } from '../stores/shotStore';
 import { durationToFrames } from '../utils/frameMath';
+import { getDeviceSerial } from '../utils/device';
 import type { Shot } from '../types/shot';
 import type { TakeLog, WasteBucket } from '../types/take';
 import { createEmptyTake } from '../types/take';
@@ -106,6 +107,7 @@ export function useProgress() {
       wastedFrames,
       remainingFrames: p.remaining,
       percent: p.percent,
+      deviceSerial: getDeviceSerial(),
       updatedAt: Date.now(),
     };
     const id = await api.addTake(row);

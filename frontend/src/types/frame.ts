@@ -6,6 +6,8 @@ export const SHOT_COUNT_OPTIONS: ShotCount[] = [1, 2, 3];
 /** 帧条目：一帧的曝光参数、道具位移与实拍记录 */
 export interface FrameEntry {
   id?: number;
+  /** 稳定帧标识：由镜号与帧槽生成，旧数据升级后仍按同一规则补齐 */
+  uid?: string;
   /** 帧序号，从 1 开始，随排序重排 */
   frameNo: number;
   /** 所属镜头 id */

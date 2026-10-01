@@ -4,6 +4,8 @@ import type { Shot } from '../types/shot';
 import type { FrameEntry } from '../types/frame';
 import type { PropState } from '../types/prop';
 import type { TakeLog } from '../types/take';
+import type { FrameConflict } from '../types/conflict';
+import type { MergeBatch } from '../types/package';
 
 export async function initDb(): Promise<void> {
   if (!db.isOpen()) await db.open();
@@ -132,4 +134,103 @@ export async function deleteTake(id: number): Promise<void> {
 /** 按实拍张数回写镜头进度（Shot 表保存完成百分比快照，便于总览页快速读取） */
 export async function syncShotProgress(shotId: number, percent: number): Promise<void> {
   await db.shots.update(shotId, toPlain({ progressPercent: percent, updatedAt: Date.now() }));
+}
+
+/* ---------------- 离线合并支持：冲突 / 批次 / 快照 ---------------- */
+
+export async function findFrame(shotId: number, frameNo: number): Promise<FrameEntry | undefined> {
+  return db.frames.where({ shotId, frameNo }).first();
+}
+
+export async function bulkAddFrames(rows: FrameEntry[]): Promise<void> {
+  if (!rows.length) return;
+  await db.frames.bulkAdd(rows.map((f) => toPlain(f)));
+}
+
+export async function bulkAddTakes(rows: TakeLog[]): Promise<void> {
+  if (!rows.length) return;
+  await db.takes.bulkAdd(rows.map((t) => toPlain(t)));
+}
+
+export async function bulkPutProps(rows: PropState[]): Promise<void> {
+  if (!rows.length) return;
+  await db.props.bulkPut(rows.map((p) => toPlain(p)));
+}
+
+export async function listConflicts(): Promise<FrameConflict[]> {
+  const rows = await db.conflicts.toArray();
+  return rows.sort((a, b) => b.createdAt - a.createdAt || (a.id ?? 0) - (b.id ?? 0));
+}
+
+export async function findPendingConflict(shotCode: string, frameNo: number): Promise<FrameConflict | undefined> {
+  return db.conflicts.where('[shotCode+frameNo]').equals([shotCode, frameNo]).and((c) => c.status === 'pending').first();
+}
+
+export async function addConflict(row: FrameConflict): Promise<number> {
+  return db.conflicts.add(toPlain(row));
+}
+
+export async function updateConflict(id: number, patch: Partial<FrameConflict>): Promise<void> {
+  await db.conflicts.update(id, toPlain(patch));
+}
+
+export async function listMergeBatches(): Promise<MergeBatch[]> {
+  return db.mergeBatches.orderBy('importedAt').reverse().toArray();
+}
+
+export async function findMergeBatch(packageId: string): Promise<MergeBatch | undefined> {
+  return db.mergeBatches.where('packageId').equals(packageId).first();
+}
+
+export async function addMergeBatch(row: MergeBatch): Promise<number> {
+  return db.mergeBatches.add(toPlain(row));
+}
+
+/** 全库快照：合并前备份，写入失败后恢复合并前内容 */
+export interface DbSnapshot {
+  shots: Shot[];
+  frames: FrameEntry[];
+  props: PropState[];
+  takes: TakeLog[];
+  conflicts: FrameConflict[];
+  mergeBatches: MergeBatch[];
+}
+
+export async function exportSnapshot(): Promise<DbSnapshot> {
+  const [shots, frames, props, takes, conflicts, mergeBatches] = await Promise.all([
+    db.shots.toArray(),
+    db.frames.toArray(),
+    db.props.toArray(),
+    db.takes.toArray(),
+    db.conflicts.toArray(),
+    db.mergeBatches.toArray(),
+  ]);
+  return {
+    shots: shots.map((s) => toPlain(s)),
+    frames: frames.map((f) => toPlain(f)),
+    props: props.map((p) => toPlain(p)),
+    takes: takes.map((t) => toPlain(t)),
+    conflicts: conflicts.map((c) => toPlain(c)),
+    mergeBatches: mergeBatches.map((b) => toPlain(b)),
+  };
+}
+
+/** 用快照恢复全库（清空后按原样写回），保证写入失败后可重试 */
+export async function restoreSnapshot(snap: DbSnapshot): Promise<void> {
+  await db.transaction('rw', [db.shots, db.frames, db.props, db.takes, db.conflicts, db.mergeBatches], async () => {
+    await Promise.all([
+      db.shots.clear(),
+      db.frames.clear(),
+      db.props.clear(),
+      db.takes.clear(),
+      db.conflicts.clear(),
+      db.mergeBatches.clear(),
+    ]);
+    if (snap.shots.length) await db.shots.bulkAdd(snap.shots);
+    if (snap.frames.length) await db.frames.bulkAdd(snap.frames);
+    if (snap.props.length) await db.props.bulkAdd(snap.props);
+    if (snap.takes.length) await db.takes.bulkAdd(snap.takes);
+    if (snap.conflicts.length) await db.conflicts.bulkAdd(snap.conflicts);
+    if (snap.mergeBatches.length) await db.mergeBatches.bulkAdd(snap.mergeBatches);
+  });
 }

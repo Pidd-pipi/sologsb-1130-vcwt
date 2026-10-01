@@ -4,6 +4,7 @@
  *   v1 建 shots / frames
  *   v2 增加 props 表与 shotId 索引
  *   v3 增加 takes 表，并按实拍张数回填进度
+ *   v4 增加 conflicts / mergeBatches 表，为已有帧补齐稳定帧标识 uid
  */
 import Dexie from 'dexie';
 import type { Table } from 'dexie';
@@ -11,6 +12,9 @@ import type { Shot } from '../types/shot';
 import type { FrameEntry } from '../types/frame';
 import type { PropState } from '../types/prop';
 import type { TakeLog } from '../types/take';
+import type { FrameConflict } from '../types/conflict';
+import type { MergeBatch } from '../types/package';
+import { frameUid } from '../utils/frameMath';
 
 export const DB_NAME = 'gbstopmotion-db';
 
@@ -32,6 +36,8 @@ export class StopMotionDb extends Dexie {
   frames!: Table<FrameEntry, number>;
   props!: Table<PropState, number>;
   takes!: Table<TakeLog, number>;
+  conflicts!: Table<FrameConflict, number>;
+  mergeBatches!: Table<MergeBatch, number>;
 
   constructor() {
     super(DB_NAME);
@@ -72,6 +78,34 @@ export class StopMotionDb extends Dexie {
           const percent = Math.min(100, Math.round((take.takenFrames / total) * 100));
           await tx.table('takes').update(take.id, { percent });
         }
+      });
+    this.version(4)
+      .stores({
+        shots: '++id, code, status, sceneName',
+        frames: '++id, shotId, frameNo, [shotId+frameNo], uid',
+        props: '++id, shotId, name, [shotId+fromFrame]',
+        takes: '++id, shotId, date, shotCode, packageId, deviceSerial',
+        conflicts: '++id, shotCode, frameNo, status, [shotCode+frameNo]',
+        mergeBatches: '++id, packageId, deviceSerial, group, importedAt',
+      })
+      .upgrade(async (tx) => {
+        // v4：为已有帧补齐稳定帧标识 uid（按镜号 + 帧槽生成，升级后保持稳定）
+        const shots = await tx.table('shots').toCollection().toArray();
+        const codeOf = new Map<number, string>();
+        for (const shot of shots) {
+          const s = shot as Shot;
+          if (typeof s.id === 'number') codeOf.set(s.id, s.code);
+        }
+        await tx
+          .table('frames')
+          .toCollection()
+          .modify((row: Record<string, unknown>) => {
+            if (typeof row.uid === 'string' && row.uid) return;
+            const shotId = Number(row.shotId);
+            const frameNo = Number(row.frameNo);
+            const code = codeOf.get(shotId) ?? `shot${shotId}`;
+            row.uid = frameUid(code, Number.isFinite(frameNo) ? frameNo : 1);
+          });
       });
   }
 }

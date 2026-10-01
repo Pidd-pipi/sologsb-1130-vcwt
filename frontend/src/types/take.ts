@@ -15,6 +15,10 @@ export interface TakeLog {
   remainingFrames: number;
   /** 完成百分比 0-100 */
   percent: number;
+  /** 来源离线包 id（回棚合并时盖印，用于整包去重） */
+  packageId?: string;
+  /** 来源设备序号（随包带走，用于按设备去重） */
+  deviceSerial?: string;
   updatedAt: number;
 }
 
